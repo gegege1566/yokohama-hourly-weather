@@ -51,8 +51,28 @@ export default function Home() {
   const next12 = rows.slice(1,13)
   const next24 = rows.slice(0,24)
 
-  // quick summary: check if next 3 hours precip > 0.5
   const upcomingPrecip = next12.slice(0,3).some(r=>r.precip>0.5)
+
+  // compute ranges for chart
+  const tempVals = next24.map(r=>r.temp)
+  const precipVals = next24.map(r=>r.precip)
+  const tempMin = Math.min(...tempVals)
+  const tempMax = Math.max(...tempVals)
+  const precipMax = Math.max(...precipVals)
+
+  const width = 760
+  const height = 200
+  const leftPad = 40
+  const rightPad = 40
+
+  const tempToY = t => {
+    const plotH = height - 40
+    return 20 + (1 - (t - tempMin) / (tempMax - tempMin || 1)) * plotH
+  }
+  const precipToY = p => {
+    const plotH = height - 40
+    return 20 + (1 - (p / (precipMax || 1))) * plotH
+  }
 
   return (
     <div className="min-h-screen p-6 bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 text-slate-100">
@@ -103,14 +123,69 @@ export default function Home() {
 
         <section className="bg-slate-800 rounded-xl p-4 shadow-lg">
           <h3 className="text-sm text-slate-300 mb-3">24時間の概観</h3>
-          <svg viewBox="0 0 800 200" className="w-full h-48">
-            {/* simple temp line */}
-            <polyline fill="none" stroke="#60a5fa" strokeWidth="2" points={next24.map((r,i)=>`${(i/23)*800},${120 - (r.temp- Math.min(...next24.map(x=>x.temp)))*3}`).join(' ')} />
-            {/* precip bars */}
-            {next24.map((r,i)=> (
-              <rect key={i} x={(i/23)*800-6} y={140 - r.precip*6} width={10} height={r.precip*6} fill="#34d399" opacity={0.9} />
-            ))}
-          </svg>
+
+          <div className="flex items-start">
+            {/* left axis (temperature) */}
+            <div className="w-10 text-xs text-slate-400 mr-2" style={{height:height}}>
+              <div style={{height: '20px'}}></div>
+              <div style={{height: (height-40)+'px', display:'flex', flexDirection:'column', justifyContent:'space-between'}}>
+                <div>{tempMax}°C</div>
+                <div>{Math.round((tempMax+tempMin)/2)}°C</div>
+                <div>{tempMin}°C</div>
+              </div>
+            </div>
+
+            <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-48">
+              {/* grid lines */}
+              <line x1={leftPad} y1={20} x2={width-rightPad} y2={20} stroke="#334155" />
+              <line x1={leftPad} y1={height-20} x2={width-rightPad} y2={height-20} stroke="#334155" />
+
+              {/* temp polyline */}
+              <polyline
+                fill="none"
+                stroke="#60a5fa"
+                strokeWidth="2"
+                points={next24.map((r,i)=>{
+                  const x = leftPad + (i/23)*(width-leftPad-rightPad)
+                  const y = tempToY(r.temp)
+                  return `${x},${y}`
+                }).join(' ')} />
+
+              {/* precip bars (scaled to right axis) */}
+              {next24.map((r,i)=>{
+                const x = leftPad + (i/23)*(width-leftPad-rightPad)
+                const barW = (width-leftPad-rightPad)/24*0.6
+                const y = precipToY(r.precip)
+                const h = (height-40) - (y-20)
+                return <rect key={i} x={x-barW/2} y={y} width={barW} height={h} fill="#34d399" opacity={0.9} />
+              })}
+
+              {/* data labels for temp */}
+              {next24.map((r,i)=>{
+                const x = leftPad + (i/23)*(width-leftPad-rightPad)
+                const y = tempToY(r.temp)
+                return <text key={i} x={x+4} y={y-8} fontSize="10" fill="#cbe6ff">{r.temp}°</text>
+              })}
+
+              {/* bottom time labels */}
+              {next24.map((r,i)=>{
+                const x = leftPad + (i/23)*(width-leftPad-rightPad)
+                return <text key={i} x={x} y={height-4} fontSize="9" fill="#94a3b8" textAnchor="middle">{r.time.slice(11,16)}</text>
+              })}
+
+            </svg>
+
+            {/* right axis (precip) */}
+            <div className="w-12 text-xs text-slate-400 ml-2" style={{height:height}}>
+              <div style={{height: '20px'}}></div>
+              <div style={{height: (height-40)+'px', display:'flex', flexDirection:'column', justifyContent:'space-between', alignItems:'flex-end'}}>
+                <div>{precipMax} mm</div>
+                <div>{(precipMax/2).toFixed(1)} mm</div>
+                <div>0 mm</div>
+              </div>
+            </div>
+          </div>
+
         </section>
 
         <section className="mt-6">
