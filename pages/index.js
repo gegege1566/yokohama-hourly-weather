@@ -208,6 +208,23 @@ export default function Home() {
         </section>
 
         <section className="mt-6">
+          <h3 className="text-sm text-slate-300 mb-2">日別予報（7日）</h3>
+          <div className="bg-slate-800 rounded-xl p-4 shadow-lg">
+            <div className="grid grid-cols-2 md:grid-cols-7 gap-3">
+              {daily.map(d=> (
+                <div key={d.date} className="bg-slate-700/40 rounded-lg p-3 text-center">
+                  <div className="text-xs text-slate-300">{d.date}</div>
+                  <div className="my-2 flex justify-center"><WeatherIcon code={d.code} size={36} /></div>
+                  <div className="text-sm font-medium">{Math.round(d.max)}° / {Math.round(d.min)}°</div>
+                  <div className="text-xs text-slate-400">降水: {d.sumPrecip.toFixed(1)} mm</div>
+                  <div className="text-xs text-slate-400">{labelFromCode(d.code)}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="mt-6">
           <h3 className="text-sm text-slate-300 mb-2">今後の詳細（1時間ごと）</h3>
           <div className="bg-slate-800 rounded-xl p-3 shadow-lg overflow-auto">
             <table className="w-full text-left text-sm">
