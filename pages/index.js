@@ -74,6 +74,25 @@ export default function Home() {
     return 20 + (1 - (p / (precipMax || 1))) * plotH
   }
 
+  // daily summary (group by date)
+  const dailyMap = {}
+  rows.forEach(r=>{
+    const date = r.time.slice(0,10)
+    if(!dailyMap[date]) dailyMap[date] = {temps:[], precips:[], codes:[]}
+    dailyMap[date].temps.push(r.temp)
+    dailyMap[date].precips.push(r.precip)
+    dailyMap[date].codes.push(r.code)
+  })
+  const daily = Object.keys(dailyMap).slice(0,7).map(date=>{
+    const d = dailyMap[date]
+    const min = Math.min(...d.temps)
+    const max = Math.max(...d.temps)
+    const sumPrecip = d.precips.reduce((a,b)=>a+b,0)
+    // predominant code (mode)
+    const mode = Object.entries(d.codes.reduce((acc,c)=>{acc[c]=(acc[c]||0)+1;return acc},{ })).sort((a,b)=>b[1]-a[1])[0][0]
+    return {date, min, max, sumPrecip, code: Number(mode)}
+  })
+
   return (
     <div className="min-h-screen p-6 bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 text-slate-100">
       <div className="max-w-4xl mx-auto">
