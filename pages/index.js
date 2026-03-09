@@ -11,6 +11,14 @@ function labelFromCode(code){
   return map[code] ?? '不明'
 }
 
+function alignRows(rows){
+  if(!rows.length) return rows
+  const now = new Date()
+  const idx = rows.findIndex(r => new Date(r.time) >= now)
+  if(idx === -1) return rows
+  return rows.slice(idx)
+}
+
 export default function Home() {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -46,49 +54,54 @@ export default function Home() {
   const precips = data.hourly.precipitation
   const codes = data.hourly.weathercode
   const rows = times.map((t, i)=>({time:t, temp:temps[i], precip:precips[i], code:codes[i]})).slice(0,168)
+  const alignedRows = alignRows(rows)
 
-  const now = rows[0]
-  const next12 = rows.slice(1,13)
-  const next24 = rows.slice(0,24)
+  if(!alignedRows.length) return <div className="p-6">表示できる最新データがありませんでした。</div>
+
+  const nowEntry = alignedRows[0]
+  const next12 = alignedRows.slice(1,13)
+  const next24 = alignedRows.slice(0,24)
 
   const upcomingPrecip = next12.slice(0,3).some(r=>r.precip>0.5)
 
-  // compute ranges for chart
-  const tempVals = next24.map(r=>r.temp)
-  const precipVals = next24.map(r=>r.precip)
-  const tempMin = Math.min(...tempVals)
-  const tempMax = Math.max(...tempVals)
-  const precipMax = Math.max(...precipVals)
+  const chartHasData = next24.length > 0
+  const tempVals = chartHasData ? next24.map(r=>r.temp) : [0]
+  const precipVals = chartHasData ? next24.map(r=>r.precip) : [0]
+  const tempMin = chartHasData ? Math.min(...tempVals) : 0
+  const tempMax = chartHasData ? Math.max(...tempVals) : 0
+  const precipMax = chartHasData ? Math.max(...precipVals) : 0
 
   const width = 760
   const height = 200
   const leftPad = 40
   const rightPad = 40
 
+  const denom = Math.max(1, next24.length - 1)
+
   const tempToY = t => {
+    if(!chartHasData) return height/2
     const plotH = height - 40
     return 20 + (1 - (t - tempMin) / (tempMax - tempMin || 1)) * plotH
   }
   const precipToY = p => {
+    if(!chartHasData) return height - 20
     const plotH = height - 40
     return 20 + (1 - (p / (precipMax || 1))) * plotH
   }
 
-  // daily summary (group by date)
-  const dailyMap = {}
-  rows.forEach(r=>{
+  const activeDailyMap = {}
+  alignedRows.forEach(r=>{
     const date = r.time.slice(0,10)
-    if(!dailyMap[date]) dailyMap[date] = {temps:[], precips:[], codes:[]}
-    dailyMap[date].temps.push(r.temp)
-    dailyMap[date].precips.push(r.precip)
-    dailyMap[date].codes.push(r.code)
+    if(!activeDailyMap[date]) activeDailyMap[date] = {temps:[], precips:[], codes:[]}
+    activeDailyMap[date].temps.push(r.temp)
+    activeDailyMap[date].precips.push(r.precip)
+    activeDailyMap[date].codes.push(r.code)
   })
-  const daily = Object.keys(dailyMap).slice(0,7).map(date=>{
-    const d = dailyMap[date]
+  const daily = Object.keys(activeDailyMap).slice(0,7).map(date=>{
+    const d = activeDailyMap[date]
     const min = Math.min(...d.temps)
     const max = Math.max(...d.temps)
     const sumPrecip = d.precips.reduce((a,b)=>a+b,0)
-    // predominant code (mode)
     const mode = Object.entries(d.codes.reduce((acc,c)=>{acc[c]=(acc[c]||0)+1;return acc},{ })).sort((a,b)=>b[1]-a[1])[0][0]
     return {date, min, max, sumPrecip, code: Number(mode)}
   })
@@ -105,12 +118,12 @@ export default function Home() {
           <div className="md:col-span-2 bg-slate-800 rounded-xl p-6 shadow-lg">
             <div className="flex items-center">
               <div className="mr-4">
-                <WeatherIcon code={now.code} size={72} />
+                <WeatherIcon code={nowEntry.code} size={72} />
               </div>
               <div>
-                <div className="text-5xl font-bold">{now.temp}°C</div>
-                <div className="text-slate-300">{labelFromCode(now.code)}</div>
-                <div className="mt-2 text-sm text-slate-400">{now.time.replace('T',' ')} 現在</div>
+                <div className="text-5xl font-bold">{nowEntry.temp}°C</div>
+                <div className="text-slate-300">{labelFromCode(nowEntry.code)}</div>
+                <div className="mt-2 text-sm text-slate-400">{nowEntry.time.replace('T',' ')} 現在</div>
               </div>
             </div>
 
@@ -141,69 +154,73 @@ export default function Home() {
         </section>
 
         <section className="bg-slate-800 rounded-xl p-4 shadow-lg">
-          <h3 className="text-sm text-slate-300 mb-3">24時間の概観</h3>
-
-          <div className="flex items-start">
-            {/* left axis (temperature) */}
-            <div className="w-10 text-xs text-slate-400 mr-2" style={{height:height}}>
-              <div style={{height: '20px'}}></div>
-              <div style={{height: (height-40)+'px', display:'flex', flexDirection:'column', justifyContent:'space-between'}}>
-                <div>{tempMax}°C</div>
-                <div>{Math.round((tempMax+tempMin)/2)}°C</div>
-                <div>{tempMin}°C</div>
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-sm text-slate-300">24時間の概観</h3>
+            {chartHasData && (
+              <div className="text-xs text-slate-400">
+                {next24[0].time.replace('T',' ')} 〜 {next24[next24.length-1].time.replace('T',' ')}
               </div>
-            </div>
-
-            <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-48">
-              {/* grid lines */}
-              <line x1={leftPad} y1={20} x2={width-rightPad} y2={20} stroke="#334155" />
-              <line x1={leftPad} y1={height-20} x2={width-rightPad} y2={height-20} stroke="#334155" />
-
-              {/* temp polyline */}
-              <polyline
-                fill="none"
-                stroke="#60a5fa"
-                strokeWidth="2"
-                points={next24.map((r,i)=>{
-                  const x = leftPad + (i/23)*(width-leftPad-rightPad)
-                  const y = tempToY(r.temp)
-                  return `${x},${y}`
-                }).join(' ')} />
-
-              {/* precip bars (scaled to right axis) */}
-              {next24.map((r,i)=>{
-                const x = leftPad + (i/23)*(width-leftPad-rightPad)
-                const barW = (width-leftPad-rightPad)/24*0.6
-                const y = precipToY(r.precip)
-                const h = (height-40) - (y-20)
-                return <rect key={i} x={x-barW/2} y={y} width={barW} height={h} fill="#34d399" opacity={0.9} />
-              })}
-
-              {/* data labels for temp */}
-              {next24.map((r,i)=>{
-                const x = leftPad + (i/23)*(width-leftPad-rightPad)
-                const y = tempToY(r.temp)
-                return <text key={i} x={x+4} y={y-8} fontSize="10" fill="#cbe6ff">{r.temp}°</text>
-              })}
-
-              {/* bottom time labels */}
-              {next24.map((r,i)=>{
-                const x = leftPad + (i/23)*(width-leftPad-rightPad)
-                return <text key={i} x={x} y={height-4} fontSize="9" fill="#94a3b8" textAnchor="middle">{r.time.slice(11,16)}</text>
-              })}
-
-            </svg>
-
-            {/* right axis (precip) */}
-            <div className="w-12 text-xs text-slate-400 ml-2" style={{height:height}}>
-              <div style={{height: '20px'}}></div>
-              <div style={{height: (height-40)+'px', display:'flex', flexDirection:'column', justifyContent:'space-between', alignItems:'flex-end'}}>
-                <div>{precipMax} mm</div>
-                <div>{(precipMax/2).toFixed(1)} mm</div>
-                <div>0 mm</div>
-              </div>
-            </div>
+            )}
           </div>
+
+          {chartHasData ? (
+            <div className="flex items-start">
+              <div className="w-10 text-xs text-slate-400 mr-2" style={{height:height}}>
+                <div style={{height: '20px'}}></div>
+                <div style={{height: (height-40)+'px', display:'flex', flexDirection:'column', justifyContent:'space-between'}}>
+                  <div>{tempMax}°C</div>
+                  <div>{Math.round((tempMax+tempMin)/2)}°C</div>
+                  <div>{tempMin}°C</div>
+                </div>
+              </div>
+
+              <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-48">
+                <line x1={leftPad} y1={20} x2={width-rightPad} y2={20} stroke="#334155" />
+                <line x1={leftPad} y1={height-20} x2={width-rightPad} y2={height-20} stroke="#334155" />
+
+                <polyline
+                  fill="none"
+                  stroke="#60a5fa"
+                  strokeWidth="2"
+                  points={next24.map((r,i)=>{
+                    const x = leftPad + (i/denom)*(width-leftPad-rightPad)
+                    const y = tempToY(r.temp)
+                    return `${x},${y}`
+                  }).join(' ')} />
+
+                {next24.map((r,i)=>{
+                  const x = leftPad + (i/denom)*(width-leftPad-rightPad)
+                  const barW = (width-leftPad-rightPad) / Math.max(24, next24.length) * 0.6
+                  const y = precipToY(r.precip)
+                  const h = (height-40) - (y-20)
+                  return <rect key={r.time} x={x-barW/2} y={y} width={barW} height={Math.max(2,h)} fill="#34d399" opacity={0.9} />
+                })}
+
+                {next24.map((r,i)=>{
+                  const x = leftPad + (i/denom)*(width-leftPad-rightPad)
+                  const y = tempToY(r.temp)
+                  return <text key={`t-${r.time}`} x={x+4} y={y-8} fontSize="10" fill="#cbe6ff">{r.temp}°</text>
+                })}
+
+                {next24.map((r,i)=>{
+                  const x = leftPad + (i/denom)*(width-leftPad-rightPad)
+                  return <text key={`time-${r.time}`} x={x} y={height-4} fontSize="9" fill="#94a3b8" textAnchor="middle">{r.time.slice(11,16)}</text>
+                })}
+
+              </svg>
+
+              <div className="w-12 text-xs text-slate-400 ml-2" style={{height:height}}>
+                <div style={{height: '20px'}}></div>
+                <div style={{height: (height-40)+'px', display:'flex', flexDirection:'column', justifyContent:'space-between', alignItems:'flex-end'}}>
+                  <div>{precipMax} mm</div>
+                  <div>{(precipMax/2).toFixed(1)} mm</div>
+                  <div>0 mm</div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="text-sm text-slate-400">24時間分のデータがまだ取得できませんでした。</div>
+          )}
 
         </section>
 
@@ -237,7 +254,7 @@ export default function Home() {
                 </tr>
               </thead>
               <tbody>
-                {rows.slice(0,72).map(r=> (
+                {alignedRows.slice(0,72).map(r=> (
                   <tr key={r.time} className="border-t border-slate-700">
                     <td className="py-2">{r.time.replace('T',' ')}</td>
                     <td className="py-2">{r.temp}°C</td>
