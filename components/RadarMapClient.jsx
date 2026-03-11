@@ -6,6 +6,8 @@ import {MapContainer, TileLayer, CircleMarker, ScaleControl} from 'react-leaflet
 const LAT = 35.580079
 const LON = 139.546187
 const DEFAULT_ZOOM = 11
+const MIN_ZOOM = 5
+const MAX_ZOOM = 12
 const RAINVIEWER_ENDPOINT = 'https://api.rainviewer.com/public/weather-maps.json'
 
 function formatFrameTime(epochSeconds){
@@ -93,7 +95,17 @@ export default function RadarMapClient(){
 
       {!loading && !error && (
         <div>
-          <MapContainer center={[LAT, LON]} zoom={DEFAULT_ZOOM} scrollWheelZoom className="w-full rounded-lg" style={{height: 420}}>
+          <MapContainer
+            center={[LAT, LON]}
+            zoom={DEFAULT_ZOOM}
+            minZoom={MIN_ZOOM}
+            maxZoom={MAX_ZOOM}
+            maxBounds={[ [LAT - 3, LON - 3], [LAT + 3, LON + 3] ]}
+            maxBoundsViscosity={0.5}
+            scrollWheelZoom
+            className="w-full rounded-lg"
+            style={{height: 420}}
+          >
             <TileLayer
               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -104,6 +116,10 @@ export default function RadarMapClient(){
                 url={`${host}${currentFrame.path}/256/{z}/{x}/{y}/2/1_1.png`}
                 opacity={0.65}
                 zIndex={5}
+                minZoom={MIN_ZOOM}
+                maxZoom={MAX_ZOOM}
+                maxNativeZoom={MAX_ZOOM}
+                attribution='Radar &copy; <a href="https://rainviewer.com/" target="_blank" rel="noreferrer">RainViewer</a>'
               />
             )}
             <CircleMarker center={[LAT, LON]} radius={8} color="#34d399" fillColor="#34d399" fillOpacity={0.8} />
@@ -153,6 +169,9 @@ export default function RadarMapClient(){
                 </span>
               ))}
             </div>
+            <p className="text-[11px] text-slate-500">
+              ※ RainViewer のレーダータイルはズーム 5〜12 のみ表示可能です。降水が無い時間帯は地図のみ表示されます。
+            </p>
           </div>
         </div>
       )}
