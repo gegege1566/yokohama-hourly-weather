@@ -5,9 +5,9 @@ import {MapContainer, TileLayer, CircleMarker, ScaleControl} from 'react-leaflet
 
 const LAT = 35.580079
 const LON = 139.546187
-const DEFAULT_ZOOM = 11
+const DEFAULT_ZOOM = 10
 const MIN_ZOOM = 5
-const MAX_ZOOM = 12
+const MAX_ZOOM = 11
 const TRANSPARENT_TILE = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw=='
 const RAINVIEWER_ENDPOINT = 'https://api.rainviewer.com/public/weather-maps.json'
 
@@ -33,6 +33,7 @@ export default function RadarMapClient(){
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(true)
   const intervalRef = useRef(null)
+  const mapRef = useRef(null)
 
   useEffect(()=>{
     async function load(){
@@ -106,6 +107,17 @@ export default function RadarMapClient(){
             scrollWheelZoom
             className="w-full rounded-lg"
             style={{height: 420}}
+            whenCreated={(map)=>{
+              mapRef.current = map
+              map.on('zoomend', ()=>{
+                const current = map.getZoom()
+                if(current > MAX_ZOOM) {
+                  map.setView(map.getCenter(), MAX_ZOOM, {animate:false})
+                } else if(current < MIN_ZOOM) {
+                  map.setView(map.getCenter(), MIN_ZOOM, {animate:false})
+                }
+              })
+            }}
           >
             <TileLayer
               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
