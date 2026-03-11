@@ -8,6 +8,7 @@ const LON = 139.546187
 const DEFAULT_ZOOM = 11
 const MIN_ZOOM = 5
 const MAX_ZOOM = 12
+const TRANSPARENT_TILE = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw=='
 const RAINVIEWER_ENDPOINT = 'https://api.rainviewer.com/public/weather-maps.json'
 
 function formatFrameTime(epochSeconds){
@@ -119,6 +120,9 @@ export default function RadarMapClient(){
                 minZoom={MIN_ZOOM}
                 maxZoom={MAX_ZOOM}
                 maxNativeZoom={MAX_ZOOM}
+                tileSize={256}
+                detectRetina={false}
+                errorTileUrl={TRANSPARENT_TILE}
                 attribution='Radar &copy; <a href="https://rainviewer.com/" target="_blank" rel="noreferrer">RainViewer</a>'
               />
             )}
