@@ -1,5 +1,6 @@
 import {useEffect, useState} from 'react'
 import WeatherIcon from '../components/WeatherIcon'
+import RadarMap from '../components/RadarMap'
 
 const LAT = 35.5800790
 const LON = 139.5461870
@@ -151,6 +152,10 @@ export default function Home() {
               座標: {LAT}, {LON}
             </div>
           </aside>
+        </section>
+
+        <section className="mt-6">
+          <RadarMap />
         </section>
 
         <section className="bg-slate-800 rounded-xl p-4 shadow-lg">
